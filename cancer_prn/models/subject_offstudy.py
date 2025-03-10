@@ -78,16 +78,23 @@ class SubjectOffstudy(OffScheduleModelMixin, ConsentVersionModelMixin, ActionMod
         super(SubjectOffstudy, self).save(*args, **kwargs)
 
     def take_off_schedule(self):
-        on_schedule = OnSchedule
-        try:
-            on_schedule_obj = on_schedule.objects.get(
-                subject_identifier=self.subject_identifier)
-        except on_schedule.DoesNotExist:
-            pass
-        else:
-            _, schedule = site_visit_schedules.get_by_onschedule_model(
-                onschedule_model=on_schedule._meta.label_lower)
-            schedule.take_off_schedule(offschedule_model_obj=self)
+        ssh_model_cls = django_apps.get_model(
+            'edc_visit_schedule.subjectschedulehistory')
+        onschedules = ssh_model_cls.objects.filter(
+            subject_identifier=self.subject_identifier)
+        for onschedule in onschedules:
+            if onschedule.schedule_status == 'onschedule':
+                onschedule_model_cls = django_apps.get_model(
+                    onschedule.onschedule_model)
+                try:
+                    onschedule_model_cls.objects.get(
+                        subject_identifier=self.subject_identifier)
+                except onschedule_model_cls.DoesNotExist:
+                    pass
+                else:
+                    _, schedule = site_visit_schedules.get_by_onschedule_model(
+                        onschedule_model=onschedule.onschedule_model)
+                    schedule.take_off_schedule(offschedule_model_obj=self)
 
     def get_consent_version(self):
         subject_consent_cls = django_apps.get_model(
